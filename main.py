@@ -1,15 +1,13 @@
 """
-main.py
+main.py — versión final
 Punto de entrada de la aplicación Software FJ.
-Inicializa el sistema y arranca la interfaz gráfica Tkinter.
 """
 
+# --- Dependencias estandar ---
 import sys
 import os
 
-# --- Configuracion del entorno de imports ---
-# Aseguramos que el directorio raiz este en el path de Python
-# para que los imports relativos funcionen correctamente.
+# --- Configuracion del path para imports locales ---
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # --- Dependencias internas ---
@@ -18,24 +16,29 @@ from utils.logger import Logger
 
 
 def main():
-    """Funcion principal: inicializa el logger y arranca la UI."""
     # --- Arranque de servicios base ---
     log = Logger()
-    log.info("=" * 50)
-    log.info("Iniciando aplicación Software FJ — Fase 1")
-    log.info("=" * 50)
+    log.info("=" * 55)
+    log.info("Software FJ — Iniciando aplicación (Fase 4 completa)")
+    log.info("=" * 55)
 
     # --- Ejecucion de la interfaz ---
     try:
         app = VentanaPrincipal()
         app.ejecutar()
+
+    # --- Cierre controlado por el usuario ---
+    except KeyboardInterrupt:
+        log.advertencia("Aplicación cerrada por el usuario (KeyboardInterrupt).")
+
+    # --- Manejo de fallos inesperados ---
     except Exception as e:
-        # --- Manejo de fallos inesperados ---
-        log.critico("La aplicación terminó con un error inesperado.", str(e))
+        log.critico("La aplicación terminó con un error fatal.", str(e))
         raise
+
+    # --- Cierre ordenado ---
     finally:
-        # --- Cierre ordenado ---
-        log.info("Aplicación cerrada.")
+        log.info("Sesión finalizada.")
 
 
 if __name__ == "__main__":
