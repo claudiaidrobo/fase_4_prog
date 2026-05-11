@@ -78,6 +78,62 @@ class Gestor:
         # --- Copia defensiva ---
         return self._clientes.copy()
 
+    def eliminar_cliente(self, id_cliente: str) -> bool:
+        """
+        Elimina un cliente por su ID.
+        No permite eliminar un cliente que tenga reservas activas
+        (pendientes o confirmadas).
+
+        Raises:
+            ValueError: Si el cliente no existe o tiene reservas activas.
+        """
+        cliente = self.buscar_cliente_por_id(id_cliente)
+        if not cliente:
+            raise ValueError(f"No existe un cliente con ID '{id_cliente}'.")
+
+        # Verificamos que no tenga reservas activas
+        reservas_activas = [
+            r for r in self._reservas
+            if r.cliente.id == id_cliente
+            and r.estado.value in ("Pendiente", "Confirmada")
+        ]
+        if reservas_activas:
+            ids = ", ".join(r.id for r in reservas_activas)
+            raise ValueError(
+                f"El cliente '{cliente.nombre}' tiene reservas activas ({ids}). "
+                f"Cancélalas antes de eliminar el cliente."
+            )
+
+        self._clientes.remove(cliente)
+        self._log.advertencia(
+            f"Cliente eliminado: {cliente.nombre}",
+            f"ID: {id_cliente}"
+        )
+        return True
+
+    def eliminar_todos_los_clientes(self) -> int:
+        """
+        Elimina todos los clientes que NO tengan reservas activas.
+        Retorna el número de clientes eliminados.
+        """
+        eliminados = 0
+        # Iteramos sobre una copia para poder modificar la lista original
+        for cliente in self._clientes.copy():
+            reservas_activas = [
+                r for r in self._reservas
+                if r.cliente.id == cliente.id
+                and r.estado.value in ("Pendiente", "Confirmada")
+            ]
+            if not reservas_activas:
+                self._clientes.remove(cliente)
+                eliminados += 1
+
+        self._log.advertencia(
+            f"Eliminación masiva de clientes.",
+            f"Clientes eliminados: {eliminados}"
+        )
+        return eliminados
+
     # --- Servicios ---
 
     def agregar_servicio(self, servicio) -> bool:

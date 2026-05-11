@@ -4,9 +4,11 @@ Clase Reserva con ciclo de vida completo: estados, confirmación,
 cancelación y procesamiento con manejo robusto de excepciones.
 """
 
+# --- Dependencias estandar ---
 import uuid
 from datetime import datetime
 from enum import Enum
+# --- Dependencias internas ---
 from core.entidad_base import EntidadBase
 from core.excepciones import (
     ReservaInvalidaError,
@@ -45,9 +47,11 @@ class Reserva(EntidadBase):
             ReservaInvalidaError:       Si los datos base son inválidos.
             ServicioNoDisponibleError:  Si el servicio está marcado como no disponible.
         """
+        # --- Identidad y metadatos ---
         id_generado = id_reserva if id_reserva else "RES-" + str(uuid.uuid4())[:6].upper()
         super().__init__(id_generado)
 
+        # --- Validaciones previas ---
         # Validaciones previas antes de asignar
         if horas <= 0:
             raise ReservaInvalidaError(
@@ -62,7 +66,8 @@ class Reserva(EntidadBase):
                 f"El cliente '{cliente.nombre}' no tiene datos válidos."
             )
 
-        # Encapsulación: atributos privados con name mangling
+        # --- Estado interno (encapsulado) ---
+        # Encapsulacion: atributos privados con name mangling
         self.__cliente     = cliente
         self.__servicio    = servicio
         self.__horas       = horas
@@ -74,41 +79,50 @@ class Reserva(EntidadBase):
         self.__motivo_cancelacion = ""
         self.__historial: list[dict] = []  # Auditoría de cambios de estado
 
-        # Registramos la creación en el historial
+        # --- Auditoria ---
+        # Registramos la creacion en el historial
         self._registrar_historial("Reserva creada en estado PENDIENTE.")
 
     # --- Propiedades de solo lectura ---
 
     @property
     def cliente(self):
+        # --- Acceso de solo lectura ---
         return self.__cliente
 
     @property
     def servicio(self):
+        # --- Acceso de solo lectura ---
         return self.__servicio
 
     @property
     def horas(self) -> float:
+        # --- Acceso de solo lectura ---
         return self.__horas
 
     @property
     def estado(self) -> EstadoReserva:
+        # --- Acceso de solo lectura ---
         return self.__estado
 
     @property
     def costo_total(self) -> float:
+        # --- Acceso de solo lectura ---
         return self.__costo_total
 
     @property
     def fecha_confirmacion(self):
+        # --- Acceso de solo lectura ---
         return self.__fecha_confirmacion
 
     @property
     def fecha_cancelacion(self):
+        # --- Acceso de solo lectura ---
         return self.__fecha_cancelacion
 
     @property
     def motivo_cancelacion(self) -> str:
+        # --- Acceso de solo lectura ---
         return self.__motivo_cancelacion
 
     # --- Ciclo de vida ---
@@ -124,6 +138,7 @@ class Reserva(EntidadBase):
             OperacionNoPermitidaError: Si la reserva no está en estado PENDIENTE.
             ReservaInvalidaError:      Si el cálculo de costo falla (encadenada).
         """
+        # --- Validacion de estado ---
         # Solo se puede confirmar una reserva PENDIENTE
         if self.__estado != EstadoReserva.PENDIENTE:
             raise OperacionNoPermitidaError(
@@ -131,6 +146,7 @@ class Reserva(EntidadBase):
                 f"Estado actual: {self.__estado.value}"
             )
 
+        # --- Calculo de costo con manejo de errores ---
         try:
             # Intentamos calcular el costo con los parámetros almacenados
             costo = self.__servicio.calcular_costo(self.__horas, **self.__kwargs_costo)
@@ -141,6 +157,7 @@ class Reserva(EntidadBase):
                 f"No se pudo calcular el costo para la reserva '{self.id}'."
             ) from e
 
+        # --- Actualizacion de estado ---
         else:
             # Solo se ejecuta si calcular_costo() no lanzó excepción
             self.__costo_total = costo
@@ -152,6 +169,7 @@ class Reserva(EntidadBase):
             )
             return costo
 
+        # --- Cierre del flujo ---
         finally:
             # Se ejecuta siempre, haya error o no
             # Útil para liberar recursos o notificar sistemas externos
@@ -170,6 +188,7 @@ class Reserva(EntidadBase):
         Raises:
             OperacionNoPermitidaError: Si la reserva ya está CANCELADA o PROCESADA.
         """
+        # --- Validacion de estado ---
         if self.__estado in (EstadoReserva.CANCELADA, EstadoReserva.PROCESADA):
             raise OperacionNoPermitidaError(
                 f"No se puede cancelar una reserva en estado "
@@ -177,6 +196,7 @@ class Reserva(EntidadBase):
                 f"Solo se pueden cancelar reservas PENDIENTES o CONFIRMADAS."
             )
 
+        # --- Transicion a CANCELADA ---
         try:
             self.__estado = EstadoReserva.CANCELADA
             self.__fecha_cancelacion = datetime.now()
@@ -193,6 +213,7 @@ class Reserva(EntidadBase):
         else:
             return True
 
+        # --- Cierre del flujo ---
         finally:
             # El bloque finally asegura que el log de cancelación
             # siempre quede registrado independientemente del resultado
@@ -206,12 +227,14 @@ class Reserva(EntidadBase):
         Raises:
             OperacionNoPermitidaError: Si la reserva no está CONFIRMADA.
         """
+        # --- Validacion de estado ---
         if self.__estado != EstadoReserva.CONFIRMADA:
             raise OperacionNoPermitidaError(
                 f"Solo se puede procesar una reserva CONFIRMADA. "
                 f"Estado actual: {self.__estado.value}"
             )
 
+        # --- Transicion a PROCESADA ---
         self.__estado = EstadoReserva.PROCESADA
         self._registrar_historial("Reserva PROCESADA. Servicio prestado exitosamente.")
         return True
@@ -220,6 +243,7 @@ class Reserva(EntidadBase):
 
     def _registrar_historial(self, descripcion: str):
         """Agrega una entrada al historial interno de cambios de estado."""
+        # --- Registro de auditoria ---
         self.__historial.append({
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "estado": self.__estado.value,
@@ -228,12 +252,14 @@ class Reserva(EntidadBase):
 
     def obtener_historial(self) -> list[dict]:
         """Retorna una copia del historial de cambios de estado."""
+        # --- Copia defensiva ---
         return self.__historial.copy()
 
     # --- Implementaciones abstractas ---
 
     def validar(self) -> bool:
         """Verifica que la reserva tiene cliente, servicio y horas válidos."""
+        # --- Validacion basica ---
         return (
             self.__cliente is not None
             and self.__servicio is not None
@@ -241,6 +267,7 @@ class Reserva(EntidadBase):
         )
 
     def to_dict(self) -> dict:
+        # --- Serializacion completa ---
         return {
             "id":                self.id,
             "cliente_id":        self.__cliente.id,

@@ -4,8 +4,10 @@ Pestaña de gestión de reservas en la UI Tkinter.
 Permite crear, confirmar, cancelar y procesar reservas con feedback visual.
 """
 
+# --- Dependencias UI ---
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+# --- Dependencias internas ---
 from core.reserva import EstadoReserva
 from core.excepciones import (
     ReservaInvalidaError,
@@ -35,9 +37,11 @@ class TabReservas:
     }
 
     def __init__(self, parent, gestor: Gestor, log: Logger):
+        # --- Servicios compartidos ---
         self._gestor = gestor
         self._log = log
         self._gestor_reservas = GestorReservas(gestor, log)
+        # --- Contenedor principal ---
         self.frame = tk.Frame(parent, bg="#f5f5f5")
         self._construir_ui()
 
@@ -52,6 +56,7 @@ class TabReservas:
         )
         panel_form.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 5), pady=10)
 
+        # --- Campos del formulario ---
         # ID del cliente
         tk.Label(panel_form, text="ID del cliente:",
                  bg="#f5f5f5", font=("Helvetica", 9)).grid(
@@ -97,7 +102,8 @@ class TabReservas:
                  width=20, font=("Helvetica", 10)).grid(
             row=9, column=0, pady=(2, 0), ipady=4)
 
-        # Botón crear
+        # --- Acciones del formulario ---
+        # Boton crear
         tk.Button(
             panel_form, text="Crear reserva",
             command=self._crear_reserva,
@@ -111,7 +117,7 @@ class TabReservas:
         ttk.Separator(panel_form, orient=tk.HORIZONTAL).grid(
             row=11, column=0, sticky="ew", pady=10)
 
-        # Botones de acciones sobre reserva seleccionada
+        # --- Acciones sobre reserva seleccionada ---
         tk.Label(panel_form, text="Acciones sobre reserva seleccionada:",
                  bg="#f5f5f5", font=("Helvetica", 9, "bold")).grid(
             row=12, column=0, sticky="w")
@@ -143,7 +149,7 @@ class TabReservas:
             padx=10, pady=5
         ).grid(row=15, column=0, sticky="ew", pady=3)
 
-        # Etiqueta de estado / feedback
+        # --- Feedback de estado ---
         self._lbl_estado = tk.Label(
             panel_form, text="",
             bg="#f5f5f5", font=("Helvetica", 9),
@@ -160,6 +166,7 @@ class TabReservas:
         panel_tabla.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
                          padx=(5, 10), pady=10)
 
+        # --- Definicion de columnas ---
         columnas = (
             "ID", "Cliente", "Servicio",
             "Horas", "Estado", "Costo total",
@@ -173,6 +180,7 @@ class TabReservas:
             self._tabla.heading(col, text=col)
             self._tabla.column(col, width=ancho, anchor=tk.CENTER)
 
+        # --- Estilos por estado ---
         # Tags de color por estado
         for estado, color in self._COLORES_ESTADO.items():
             self._tabla.tag_configure(estado, foreground=color)
@@ -201,6 +209,7 @@ class TabReservas:
 
     def _obtener_id_seleccionado(self) -> str | None:
         """Retorna el ID de la reserva seleccionada en la tabla, o None."""
+        # --- Validacion de seleccion ---
         seleccion = self._tabla.selection()
         if not seleccion:
             messagebox.showwarning(
@@ -217,9 +226,11 @@ class TabReservas:
         Lee el formulario y delega la creación al GestorReservas.
         Usa try/except/else/finally con manejo granular por tipo de excepción.
         """
+        # --- Lectura de campos ---
         id_cliente  = self._var_id_cliente.get().strip()
         id_servicio = self._var_id_servicio.get().strip()
 
+        # --- Validacion numerica ---
         try:
             horas     = float(self._var_horas.get())
             impuesto  = float(self._var_impuesto.get())
@@ -230,12 +241,14 @@ class TabReservas:
             )
             return
 
+        # --- Creacion con manejo de errores ---
         try:
             reserva = self._gestor_reservas.crear_reserva(
                 id_cliente, id_servicio, horas,
                 impuesto=impuesto, descuento=descuento
             )
 
+        # --- Errores esperados ---
         except ClienteNoEncontradoError as e:
             self._log.error("Reserva fallida: cliente no encontrado.", str(e))
             self._lbl_estado.config(text=f"Cliente no encontrado:\n{e}", fg="#e74c3c")
@@ -248,10 +261,12 @@ class TabReservas:
             self._log.error("Reserva fallida: datos inválidos.", str(e))
             self._lbl_estado.config(text=f"Reserva inválida:\n{e}", fg="#e74c3c")
 
+        # --- Error inesperado ---
         except Exception as e:
             self._log.critico("Error inesperado al crear reserva.", str(e))
             self._lbl_estado.config(text=f"Error inesperado:\n{e}", fg="#c0392b")
 
+        # --- Exito ---
         else:
             # Solo si no hubo excepción
             self._lbl_estado.config(
@@ -260,19 +275,23 @@ class TabReservas:
             self._limpiar_formulario()
             self.refrescar_tabla()
 
+        # --- Cierre del flujo ---
         finally:
             # Siempre refrescamos la tabla para reflejar el estado real
             self.refrescar_tabla()
 
     def _confirmar_reserva(self):
         """Confirma la reserva seleccionada en la tabla."""
+        # --- Seleccion y validacion ---
         id_reserva = self._obtener_id_seleccionado()
         if not id_reserva:
             return
 
+        # --- Confirmacion ---
         try:
             costo = self._gestor_reservas.confirmar_reserva(str(id_reserva))
 
+        # --- Errores esperados ---
         except ReservaNoEncontradaError as e:
             self._lbl_estado.config(text=f"No encontrada:\n{e}", fg="#e74c3c")
 
@@ -286,21 +305,25 @@ class TabReservas:
             self._lbl_estado.config(
                 text=f"Error al confirmar:\n{e}{detalle}", fg="#e74c3c"
             )
+        # --- Exito ---
         else:
             self._lbl_estado.config(
                 text=f"Reserva confirmada.\nCosto: ${costo:,.2f} COP",
                 fg="#27ae60"
             )
+        # --- Cierre del flujo ---
         finally:
             self.refrescar_tabla()
 
     def _cancelar_reserva(self):
         """Cancela la reserva seleccionada, solicitando el motivo."""
+        # --- Seleccion y validacion ---
         id_reserva = self._obtener_id_seleccionado()
         if not id_reserva:
             return
 
-        # Pedimos el motivo con un diálogo simple
+        # --- Solicitar motivo ---
+        # Pedimos el motivo con un dialogo simple
         motivo = simpledialog.askstring(
             "Cancelar reserva",
             "Ingresa el motivo de cancelación:",
@@ -309,9 +332,11 @@ class TabReservas:
         if motivo is None:
             return  # El usuario presionó Cancelar en el diálogo
 
+        # --- Cancelacion ---
         try:
             self._gestor_reservas.cancelar_reserva(str(id_reserva), motivo)
 
+        # --- Errores esperados ---
         except ReservaNoEncontradaError as e:
             self._lbl_estado.config(text=f"No encontrada:\n{e}", fg="#e74c3c")
 
@@ -327,23 +352,28 @@ class TabReservas:
 
     def _procesar_reserva(self):
         """Marca la reserva seleccionada como procesada."""
+        # --- Seleccion y validacion ---
         id_reserva = self._obtener_id_seleccionado()
         if not id_reserva:
             return
 
+        # --- Procesamiento ---
         try:
             self._gestor_reservas.procesar_reserva(str(id_reserva))
 
+        # --- Errores esperados ---
         except ReservaNoEncontradaError as e:
             self._lbl_estado.config(text=f"No encontrada:\n{e}", fg="#e74c3c")
 
         except OperacionNoPermitidaError as e:
             self._lbl_estado.config(text=f"Operación no permitida:\n{e}", fg="#e67e22")
 
+        # --- Exito ---
         else:
             self._lbl_estado.config(
                 text=f"Reserva '{id_reserva}' procesada exitosamente.", fg="#2980b9"
             )
+        # --- Cierre del flujo ---
         finally:
             self.refrescar_tabla()
 
@@ -351,9 +381,11 @@ class TabReservas:
 
     def refrescar_tabla(self):
         """Repuebla la tabla con las reservas actuales del gestor."""
+        # --- Limpiar tabla ---
         for fila in self._tabla.get_children():
             self._tabla.delete(fila)
 
+        # --- Poblar con datos actuales ---
         for r in self._gestor.listar_reservas():
             d = r.to_dict()
             self._tabla.insert(
@@ -373,6 +405,7 @@ class TabReservas:
 
     def _limpiar_formulario(self):
         """Vacía los campos del formulario de creación."""
+        # --- Reset del formulario ---
         self._var_id_cliente.set("")
         self._var_id_servicio.set("")
         self._var_horas.set("1")
