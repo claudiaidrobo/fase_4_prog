@@ -15,6 +15,7 @@ from utils.logger import Logger
 from servicios.reserva_sala import ReservaSala
 from servicios.alquiler_equipo import AlquilerEquipo
 from servicios.asesoria import AsesoriaEspecializada
+from ui.tab_reservas import TabReservas
 
 
 class VentanaPrincipal:
@@ -93,6 +94,9 @@ class VentanaPrincipal:
 
         # --- Cargar catalogo al iniciar ---
         self._tab_servicios.refrescar_catalogo()
+        
+        self._tab_reservas = TabReservas(self._notebook, self._gestor, self._log)
+        self._notebook.add(self._tab_reservas.frame, text="  Reservas  ")
 
     def _al_cambiar_tab(self, evento):
         # --- Sincronizar vistas por pestaña ---
@@ -100,6 +104,8 @@ class VentanaPrincipal:
         if idx == 1:
             self._tab_servicios.refrescar_catalogo()
         elif idx == 2:
+            self._tab_logs.refrescar()
+        elif idx == 3:
             self._tab_logs.refrescar()
 
     def ejecutar(self):
